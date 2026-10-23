@@ -2,7 +2,7 @@ function st_run()
 %% stPRF experimental 
 % ========================================================================
 % each run %%%%%%%%%
-% stimulus radius = 12
+% stimulus radius = 9
 % trial Dur = 5, blank Dur =10
 % Number of Direction 4, number of steps 9
 % Stimulus [4 directions * 9 steps * 5 seconds/location ] = 180 sec
@@ -15,8 +15,9 @@ function st_run()
 %
 
 %% SET PATHS
-cd      '/Users/insubkim/Documents/stPRF/experiment'
-addpath(genpath(    '/Users/insubkim/Documents/MATLAB/Psychtoolbox-3'))
+cd      '/home/tempread/toolboxes/stPRF/experiment'
+addpath(genpath(    '/home/tempread/toolboxes/BCBLViennaSoft/Psychtoolbox-3'))
+addpath(            '/home/tempread/toolboxes/BCBLViennaSoft/measurementlaptop/edfmex-master') % EDF -> .mat
 addpath(genpath(    './'))
 
 %% constants
@@ -26,11 +27,11 @@ addpath(genpath(    './'))
 [a, b]=GetKeyboardIndices;
 deviceNumber= max(a);
 
-subject.name = 'test'; % put subject ID
+subject.name = 'test_2110'; % put subject ID
 subject.scanner = 0; % if you want to trigger scanner do 1
 
 % stimulus
-params.radius = 12;
+params.radius = 9;
 params.doShuffle = 0;
 
 % temporal
@@ -39,14 +40,21 @@ params.blank_dur = 10;
 params.tr = 1;
 
 % scanner
-triggerKey = 'g'; % press g to start
+triggerKey = 's'; % press g to start
 comTrigScan = true;
 
 %save
 saveStim = 0;
 
 %eyelink
-params.eyelink = 0;
+params.eyelink = [];        % [] = ask at start, 0 = off, 1 = on
+params.et.calibrate = [];   % [] = ask, 1 = calibration + validation, 0 = drift check only
+params.et.dummy = 0;        % 1 = EyeLink dummy mode, test without tracker
+params.et.calibType = 'HV13';
+params.et.calibValidRatio = [0.715 0.715]; % BCBL 9 deg setting from BCBLViennaSoft
+params.et.targetSize = 2.5;  % 'small' in BCBLViennaSoft
+params.et.targetWidth = 1;
+params.et.backColor = [125 125 125]; % same as the stimulus background
 
 
 %% COLLECT SESSION INFORMATION
@@ -60,6 +68,9 @@ while ~ismember(params.eyelink,[0 1])
 end
 
 if params.eyelink
+    while ~ismember(params.et.calibrate,[0 1])
+        params.et.calibrate = input('Calibrate and validate? (Y=1, N=0 drift check only): ');
+    end
     fprintf(['\nwfret paused to make sure that you have turned off the' ...
              ' wifi, press any key to continue\n\n'])
     pause;
@@ -89,6 +100,8 @@ end
 subject.nRun =runN;
 subject.saveName = fullfile(path.dataDir,sprintf('stPRF_Run%d.txt',runN));
 subject.ExpDesign =ExpDesign;
+disp(runN)
+disp(size(ExpDesign))
 ExpDesign = ExpDesign(runN,:);
 
 
@@ -318,7 +331,7 @@ fixSeq = fixSeq(:)+1;
 % check that the sequence of fixations is at least as long as the sequence
 % of stimuli. if not, pad the the fixation sequence.
 if length(fixSeq) < length(sequence), fixSeq(end+1:length(sequence)) = 0; end
-% if the fixation sequenxce is shorter, truncate it
+% if the fixation sequence is shorter, truncate it
 fixSeq = fixSeq(1:length(sequence));
 % force binary
 fixSeq(fixSeq>2)=2;
@@ -335,14 +348,17 @@ if subject.scanner == 1
     Screen('Preference', 'SkipSyncTests', 1);
     % params.display                = openScreen(params.display,2);
     % Screen('OpenWindow',1, [125 125 125])
-        [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',1,...
-    [125 125 125]);
+    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',1,...
+        [125 125 125]);
 
 else
-    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',0,...
-    [125 125 125], [0 0 800 800]);
-    [params.display.fixX,params.display.fixY] = RectCenter( [0 0 800 800]); 
-
+    screen_num = 0;
+    % second_screen_rect = [1920, 0, 1920+1024, 768]; % 1024 768
+    second_screen_rect = [1920 0 3840 1080]; % 1920 1080
+    
+    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',...
+                        screen_num,[125 125 125], second_screen_rect);
+    [params.display.fixX,params.display.fixY] = RectCenter( params.display.rect);
 
 end
 
@@ -365,21 +381,20 @@ disp(['######## Seq(s) : ' num2str(ExpDesign)]);
 
 % ######### Eyelink Commands ######
 if params.eyelink
-    % Get edf file name from user
-    prompt = {'Enter EDF file name (1 to 8 characters)'};
-    dlg_title = 'Create EDF File';
-    num_lines = 1;
-    def = {[num2str(n) subject.name]};
-    edfName = inputdlg(prompt,dlg_title,num_lines,def);
-    edfName = edfName{1}; % Convert from cell to string
-    
+    % host file name max 8 chars, the local copy gets the full name
+    params.et.edfFile = sprintf('r%02d_%s', runN, datestr(now,'HHMM'));
+
     % Run calibration, validation, and drift correction
-    setupEyelink_Projector(edfName, params.display.windowPtr);
+    [~, params.et.edfFile] = st_etSetup(params.display, params.et);
+
+    % record while waiting for the trigger
+    st_etStart(runN, subject.name);
 end
 
 
 
 pressKey2Begin(params.display, false, [], [], triggerKey);
+if params.eyelink, Eyelink('Message', 'TRIGGER_RECEIVED'); end
 
 if comTrigScan
     % Check if serial port trigger works start scan
@@ -387,24 +402,25 @@ if comTrigScan
     if status ~= 0
         %error(['Trigger failed'])
     end
-    
-end
 
-% ######### Eyelink Commands ######
-if isfield(params,{'eyelink'}) == 1
-    if params.eyelink == 1
-        % Start recording
-        Eyelink('message','TRIAL_START');
-        Eyelink('StartRecording');
-    end
 end
 
 
 if comTrigScan
     [s,time0] = StartScan;
+else
+    time0 = GetSecs;
 end
 
 t0 = time0; % "time 0" to keep timing going
+% SYNCTIME marks t0 in the EDF; frame onsets are t0+(frame-1)*viewTime
+if params.eyelink
+    % same start marker as BCBLViennaSoft doRetinotopyScan.m
+    Eyelink('Message', ['Experiments Starts. Time is: ',num2str(now,'%.8f')]);
+    disp(['Experiments start time (',datestr(now,'yyyy-mm-dd HH:MM:SS.FFF'),') successfully sent to Eyetracker.'])
+    Eyelink('Message', 'SYNCTIME');
+    Eyelink('Message', 'STIM_START nFrames %d frameDur_ms %.3f', nFrames, viewTime*1000);
+end
 for frame = 1:nFrames
     if stimulus.seq(frame)>0
         % put in an image
@@ -419,7 +435,26 @@ for frame = 1:nFrames
 
 
     end
+
+    % ######### Eyelink sync messages ######
+    if params.eyelink
+        % offset (ms) between the flip and now, EyeLink subtracts it
+        etOffset = round((GetSecs-VBLTimestamp)*1000);
+        if mod(frame-1,nF) == 0
+            trial = (frame-1)/nF + 1;
+            Eyelink('Message', '%d TRIAL_ONSET %d frame %d blank %d nImages %d', ...
+                etOffset, trial, frame, all(rs(:,trial)==0), nImages(trial));
+        end
+        if frame == 1 || stimulus.fixSeq(frame) ~= stimulus.fixSeq(frame-1)
+            Eyelink('Message', '%d FIX_COLOR %d frame %d', etOffset, stimulus.fixSeq(frame), frame);
+        end
+    end
+
     [keys RT] = recordKeys(t0+(frame-1)*viewTime,viewTime,deviceNumber);
+
+    if params.eyelink && ~strcmp(keys,'noanswer')
+        Eyelink('Message', 'RESPONSE %s frame %d', keys, frame);
+    end
 
     %--- update screen
     data.keys{frame} = keys;
@@ -432,27 +467,13 @@ tTime
 
 %%
 if params.eyelink
-    % Stop eyetracking
-    Eyelink('message','TRIAL_END');
-    Eyelink('StopRecording');
-    cd /Users/insubkim/Desktop/scanning/stExp/edffiles
-    status = Eyelink('ReceiveFile');
-    if status <= 0
-        fprintf('\n\nProblem receiving edf file\n\n');
-    end
-    Eyelink('CloseFile');
-    %{
-            % Get edf file
-            status = Eyelink('ReceiveFile',edfName,[],...
-                             '/Users/vpnl/exp/toonData/edffiles');
-            if ~status
-                fprintf(['Problem receiving edf file' edfName]);
-            end
-    %}
-    
-    % Rename edf file to add date of scan
-    movefile(sprintf('%s.edf',edfName),sprintf('%s_%s.edf',edfName,date));
-    
+    % Stop eyetracking and copy the EDF to the subject data folder
+    Eyelink('Message', 'STIM_END duration_s %.3f', tTime);
+    % same stop marker as BCBLViennaSoft doRetinotopyScan.m
+    Eyelink('Message', ['Experiments Stops. Time is: ',num2str(now,'%.8f')]);
+    disp(['Experiments stop time (',datestr(now,'yyyy-mm-dd HH:MM:SS.FFF'),') successfully sent to Eyetracker.'])
+    params.et.EDFLocalFilename = st_etStop(params.et.edfFile, path.dataDir, ...
+        sprintf('%s_r%d', subject.name, runN));
 end
 
 %%
