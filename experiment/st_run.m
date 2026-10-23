@@ -2,7 +2,7 @@ function st_run()
 %% stPRF experimental 
 % ========================================================================
 % each run %%%%%%%%%
-% stimulus radius = 12
+% stimulus radius = 9
 % trial Dur = 5, blank Dur =10
 % Number of Direction 4, number of steps 9
 % Stimulus [4 directions * 9 steps * 5 seconds/location ] = 180 sec
@@ -15,8 +15,8 @@ function st_run()
 %
 
 %% SET PATHS
-cd      '/Users/insubkim/Documents/stPRF/experiment'
-addpath(genpath(    '/Users/insubkim/Documents/MATLAB/Psychtoolbox-3'))
+cd      '/home/tempread/toolboxes/stPRF/experiment'
+addpath(genpath(    '/home/tempread/toolboxes/BCBLViennaSoft/Psychtoolbox-3'))
 addpath(genpath(    './'))
 
 %% constants
@@ -26,11 +26,11 @@ addpath(genpath(    './'))
 [a, b]=GetKeyboardIndices;
 deviceNumber= max(a);
 
-subject.name = 'test'; % put subject ID
+subject.name = 'test_2110'; % put subject ID
 subject.scanner = 0; % if you want to trigger scanner do 1
 
 % stimulus
-params.radius = 12;
+params.radius = 9;
 params.doShuffle = 0;
 
 % temporal
@@ -39,7 +39,7 @@ params.blank_dur = 10;
 params.tr = 1;
 
 % scanner
-triggerKey = 'g'; % press g to start
+triggerKey = 's'; % press g to start
 comTrigScan = true;
 
 %save
@@ -89,6 +89,8 @@ end
 subject.nRun =runN;
 subject.saveName = fullfile(path.dataDir,sprintf('stPRF_Run%d.txt',runN));
 subject.ExpDesign =ExpDesign;
+disp(runN)
+disp(size(ExpDesign))
 ExpDesign = ExpDesign(runN,:);
 
 
@@ -318,7 +320,7 @@ fixSeq = fixSeq(:)+1;
 % check that the sequence of fixations is at least as long as the sequence
 % of stimuli. if not, pad the the fixation sequence.
 if length(fixSeq) < length(sequence), fixSeq(end+1:length(sequence)) = 0; end
-% if the fixation sequenxce is shorter, truncate it
+% if the fixation sequence is shorter, truncate it
 fixSeq = fixSeq(1:length(sequence));
 % force binary
 fixSeq(fixSeq>2)=2;
@@ -335,14 +337,17 @@ if subject.scanner == 1
     Screen('Preference', 'SkipSyncTests', 1);
     % params.display                = openScreen(params.display,2);
     % Screen('OpenWindow',1, [125 125 125])
-        [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',1,...
-    [125 125 125]);
+    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',1,...
+        [125 125 125]);
 
 else
-    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',0,...
-    [125 125 125], [0 0 800 800]);
-    [params.display.fixX,params.display.fixY] = RectCenter( [0 0 800 800]); 
-
+    screen_num = 0;
+    % second_screen_rect = [1920, 0, 1920+1024, 768]; % 1024 768
+    second_screen_rect = [1920 0 3840 1080]; % 1920 1080
+    
+    [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',...
+                        screen_num,[125 125 125], second_screen_rect);
+    [params.display.fixX,params.display.fixY] = RectCenter( params.display.rect);
 
 end
 
