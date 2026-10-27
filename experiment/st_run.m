@@ -18,6 +18,7 @@ function st_run()
 cd      '/home/tempread/toolboxes/stPRF/experiment'
 addpath(genpath(    '/home/tempread/toolboxes/BCBLViennaSoft/Psychtoolbox-3'))
 addpath(            '/home/tempread/toolboxes/BCBLViennaSoft/measurementlaptop/edfmex-master') % EDF -> .mat
+addpath(            '/home/tempread/toolboxes/BCBLViennaSoft/measurementlaptop') % EyeLink helpers: ExtractFromEDFfile, host images
 addpath(genpath(    './'))
 
 %% constants
@@ -27,11 +28,14 @@ addpath(genpath(    './'))
 [a, b]=GetKeyboardIndices;
 deviceNumber= max(a);
 
-subject.name = 'test_2110'; % put subject ID
+subject.name = 'pilot01_2710'; % put subject ID
 subject.scanner = 0; % if you want to trigger scanner do 1
 
 % stimulus
 params.radius = 9;
+params.barWidth = 3;        % bar width (deg); 9 bars span the diameter, overlap = (9*3-18)/8 = 1.125 deg
+params.stimSizePix = 1024;  % stimulus diameter on screen (px), same as BCBLViennaSoft (2*radius = 1024 px)
+params.backColor = 128;     % one grey for window, stimulus square, start screen and EyeLink (BCBLViennaSoft uses 128)
 params.doShuffle = 0;
 
 % temporal
@@ -47,14 +51,14 @@ comTrigScan = true;
 saveStim = 0;
 
 %eyelink
-params.eyelink = [];        % [] = ask at start, 0 = off, 1 = on
-params.et.calibrate = [];   % [] = ask, 1 = calibration + validation, 0 = drift check only
+params.eyelink = 1;        % [] = ask at start, 0 = off, 1 = on
+params.et.calibrate = 1;   % [] = ask, 1 = calibration + validation, 0 = no calibration (use the last one)
 params.et.dummy = 0;        % 1 = EyeLink dummy mode, test without tracker
 params.et.calibType = 'HV13';
-params.et.calibValidRatio = [0.715 0.715]; % BCBL 9 deg setting from BCBLViennaSoft
+params.et.calibValidRatio = [0.5 0.5]; % BCBL 9 deg setting from BCBLViennaSoft
 params.et.targetSize = 2.5;  % 'small' in BCBLViennaSoft
 params.et.targetWidth = 1;
-params.et.backColor = [125 125 125]; % same as the stimulus background
+params.et.backColor = params.backColor*[1 1 1]; % same as the stimulus background
 
 
 %% COLLECT SESSION INFORMATION
@@ -69,7 +73,7 @@ end
 
 if params.eyelink
     while ~ismember(params.et.calibrate,[0 1])
-        params.et.calibrate = input('Calibrate and validate? (Y=1, N=0 drift check only): ');
+        params.et.calibrate = input('Calibrate and validate? (Y=1, N=0 use the last calibration): ');
     end
     fprintf(['\nwfret paused to make sure that you have turned off the' ...
              ' wifi, press any key to continue\n\n'])
@@ -109,6 +113,11 @@ ExpDesign = ExpDesign(runN,:);
 
 % load display
 params.display =loadDisplayParams;
+% draw the stimulus at stimSizePix, centered (createTextures uses display.destRect)
+params.display.destRect = [0 0 params.stimSizePix params.stimSizePix];
+% same grey for the image background (bk), the start screen and the window
+params.display.backColorIndex = params.backColor;
+params.display.backColorRgb   = [params.backColor*[1 1 1] params.display.maxRgbValue];
 temporal.trial_dur = params.trial_dur;
 temporal.fs = 1/params.display.frameRate;
 viewTime = temporal.fs;
@@ -119,7 +128,7 @@ params.stimSize = params.radius;
 params.temporal.frequency =1;
 params.ncycles = 1;
 params.period = 36;
-params.ringDeg          = params.radius./4;			% Ring radius/width (deg)
+params.ringDeg          = params.barWidth;			% Ring radius/width (deg)
 params.prescanDuration = 0;
 params.framePeriod  = params.tr;
 params.numImages    = round(params.period/params.framePeriod)*2;
@@ -140,10 +149,10 @@ numSubRings     = 1;
 bk = params.display.backColorIndex;
 
 
-% made outerRad to be 1/3 because matrix becomes to big
-% I will re-scale the image it later on
-m = round(2 * angle2pix(params.display, outerRad/3));
-n = round(2 * angle2pix(params.display, outerRad/3));
+% images are made at half the on-screen size (memory) and drawn 2x by
+% destRect; building them smaller blurs and widens the bar edges
+m = round(params.stimSizePix/2);
+n = round(params.stimSizePix/2);
 [x,y]=meshgrid(linspace(-outerRad,outerRad,n),linspace(outerRad,-outerRad,m));
 
 % r = eccentricity;
@@ -158,11 +167,15 @@ remake_xy(1:length(remake_xy)/length(orientations):length(remake_xy)) = orientat
 original_x   = x;
 original_y   = y;
 % step size of the bar
+% the step_nx bars span the diameter exactly: first bar starts at -outerRad,
+% last bar ends at +outerRad (as in Kim et al. 2024: 12 deg radius, 3 deg bar,
+% 0.375 deg overlap)
 step_nx      = duration.cycle.seconds./params.tr/4;
-step_x       = (2*outerRad) ./ step_nx;
-step_startx  = (step_nx-1)./2.*-step_x - (ringWidth./2);
+step_x       = (2*outerRad - ringWidth) ./ (step_nx-1);
+step_startx  = -outerRad;
 %[0:step_nx-1].*step_x+step_startx+ringWidth./2
-fprintf('[%s]:stepsize: %f degrees.\n',mfilename,step_x);
+fprintf('[%s]:stepsize: %f degrees, bar width %g, overlap %f degrees, %d steps.\n',...
+    mfilename,step_x,ringWidth,ringWidth-step_x,step_nx);
 
 % if we create colored bars we want to make the edges soft.
 softmask = ones(m);
@@ -172,7 +185,8 @@ fprintf('[%s]:Creating %d images:',mfilename,halfNumImages);
 images=zeros(m,n,3,halfNumImages*numMotSteps,'uint8');
 %%
 picked = randperm(6,1);
-cacheImg =[path.baseDir '/img_' num2str(picked) '.mat'];
+% bar width, step and background are baked into the cache, so they are part of the file name
+cacheImg = fullfile(path.baseDir, sprintf('img_%d_bar%gdeg_step%gdeg_r%gdeg_%dpx_bg%d.mat', picked, params.ringDeg, step_x, outerRad, m, bk));
 if exist(cacheImg, 'file')  ~= 2
     for imgNum=1:halfNumImages
         
@@ -237,8 +251,8 @@ fprintf('Done.\n');
 
 
 %% get back image size
-m = round(2 * angle2pix(params.display, outerRad));
-n = round(2 * angle2pix(params.display, outerRad));
+m = round(params.stimSizePix/2);
+n = round(params.stimSizePix/2);
 
 images = imresize(images,[m n]);
 
@@ -349,7 +363,7 @@ if subject.scanner == 1
     % params.display                = openScreen(params.display,2);
     % Screen('OpenWindow',1, [125 125 125])
     [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',1,...
-        [125 125 125]);
+        params.backColor*[1 1 1]);
 
 else
     screen_num = 0;
@@ -357,7 +371,7 @@ else
     second_screen_rect = [1920 0 3840 1080]; % 1920 1080
     
     [params.display.windowPtr,params.display.rect] = Screen('OpenWindow',...
-                        screen_num,[125 125 125], second_screen_rect);
+                        screen_num,params.backColor*[1 1 1], second_screen_rect);
     [params.display.fixX,params.display.fixY] = RectCenter( params.display.rect);
 
 end
@@ -384,11 +398,11 @@ if params.eyelink
     % host file name max 8 chars, the local copy gets the full name
     params.et.edfFile = sprintf('r%02d_%s', runN, datestr(now,'HHMM'));
 
-    % Run calibration, validation, and drift correction
+    % Run calibration and validation (no drift check)
     [~, params.et.edfFile] = st_etSetup(params.display, params.et);
 
     % record while waiting for the trigger
-    st_etStart(runN, subject.name);
+    st_etStart(runN, subject.name, params.display);
 end
 
 
@@ -416,10 +430,11 @@ t0 = time0; % "time 0" to keep timing going
 % SYNCTIME marks t0 in the EDF; frame onsets are t0+(frame-1)*viewTime
 if params.eyelink
     % same start marker as BCBLViennaSoft doRetinotopyScan.m
-    Eyelink('Message', ['Experiments Starts. Time is: ',num2str(now,'%.8f')]);
+    Eyelink('Message', ['Experiments Starts. Time is: ',num2str(now)]);
     disp(['Experiments start time (',datestr(now,'yyyy-mm-dd HH:MM:SS.FFF'),') successfully sent to Eyetracker.'])
     Eyelink('Message', 'SYNCTIME');
-    Eyelink('Message', 'STIM_START nFrames %d frameDur_ms %.3f', nFrames, viewTime*1000);
+    % Eyelink('Message') only takes chars/ints as arguments, so format here
+    Eyelink('Message', '%s', sprintf('STIM_START nFrames %d frameDur_ms %.3f', nFrames, viewTime*1000));
 end
 for frame = 1:nFrames
     if stimulus.seq(frame)>0
@@ -442,18 +457,18 @@ for frame = 1:nFrames
         etOffset = round((GetSecs-VBLTimestamp)*1000);
         if mod(frame-1,nF) == 0
             trial = (frame-1)/nF + 1;
-            Eyelink('Message', '%d TRIAL_ONSET %d frame %d blank %d nImages %d', ...
-                etOffset, trial, frame, all(rs(:,trial)==0), nImages(trial));
+            Eyelink('Message', '%s', sprintf('%d TRIAL_ONSET %d frame %d blank %d nImages %d', ...
+                etOffset, trial, frame, all(rs(:,trial)==0), nImages(trial)));
         end
         if frame == 1 || stimulus.fixSeq(frame) ~= stimulus.fixSeq(frame-1)
-            Eyelink('Message', '%d FIX_COLOR %d frame %d', etOffset, stimulus.fixSeq(frame), frame);
+            Eyelink('Message', '%s', sprintf('%d FIX_COLOR %d frame %d', etOffset, stimulus.fixSeq(frame), frame));
         end
     end
 
     [keys RT] = recordKeys(t0+(frame-1)*viewTime,viewTime,deviceNumber);
 
     if params.eyelink && ~strcmp(keys,'noanswer')
-        Eyelink('Message', 'RESPONSE %s frame %d', keys, frame);
+        Eyelink('Message', '%s', sprintf('RESPONSE %s frame %d', keys, frame));
     end
 
     %--- update screen
@@ -468,12 +483,12 @@ tTime
 %%
 if params.eyelink
     % Stop eyetracking and copy the EDF to the subject data folder
-    Eyelink('Message', 'STIM_END duration_s %.3f', tTime);
+    Eyelink('Message', '%s', sprintf('STIM_END duration_s %.3f', tTime));
     % same stop marker as BCBLViennaSoft doRetinotopyScan.m
-    Eyelink('Message', ['Experiments Stops. Time is: ',num2str(now,'%.8f')]);
+    Eyelink('Message', ['Experiments Stops. Time is: ',num2str(now)]);
     disp(['Experiments stop time (',datestr(now,'yyyy-mm-dd HH:MM:SS.FFF'),') successfully sent to Eyetracker.'])
-    params.et.EDFLocalFilename = st_etStop(params.et.edfFile, path.dataDir, ...
-        sprintf('%s_r%d', subject.name, runN));
+    [params.et.EDFLocalFilename, params.et.ETstopNow] = st_etStop(params.et.edfFile, path.dataDir, ...
+        sprintf('%s_r%d', subject.name, runN), params.display);
 end
 
 %%
@@ -572,5 +587,9 @@ end
 %% Save lastbit
 save([path.dataDir '/info_' num2str(runN) '.mat'],'expInfo','subject','data','params','-v7.3');
 
+%% EDF -> .mat and gaze, last: edfmex can crash MATLAB, the run data is saved above
+if params.eyelink
+    st_etConvert(params.et.EDFLocalFilename, params.et.ETstopNow);
+end
 end
   

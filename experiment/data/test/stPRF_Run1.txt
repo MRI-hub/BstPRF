@@ -1,5 +1,5 @@
 stPRF conditions: 5s, Shuffle0 
-Stimulus size (radius): 12 
+Stimulus size (radius): 10 
 Run duration (s): 220 
 Run Number: 1 
 

@@ -1,13 +1,13 @@
 function [el, edfFile] = st_etSetup(display, et)
 % Connect to the EyeLink, open the EDF file on the host and run
-% calibration + validation (or only a drift check) on the stimulus window.
+% calibration + validation on the stimulus window (no drift check).
 %
 %   [el, edfFile] = st_etSetup(display, et)
 %
 % display : params.display, with windowPtr and rect of the stimulus window
 % et      : struct with fields
 %   .edfFile          host file name, max 8 chars (letters, digits, _)
-%   .calibrate        1 = calibration + validation, 0 = drift check only
+%   .calibrate        1 = calibration + validation, 0 = no calibration (use the last one)
 %   .dummy            1 = EyeLink dummy mode (no tracker, for testing)
 %   .calibType        e.g. 'HV13' (BCBL default) or 'HV9'
 %   .calibValidRatio  [x y] proportion of the screen used for calib/valid
@@ -88,15 +88,13 @@ EyelinkUpdateDefaults(el);
 
 HideCursor;
 
+% tracker setup when calibrating (as BCBLViennaSoft ConfigEyetracker.m);
+% no drift check (BCBLViennaSoft DriftCorrection.m is not used)
 if et.calibrate
     fprintf(['\n[%s]: CALIBRATION / VALIDATION on the stimulus screen\n' ...
              '   Enter = camera image (adjust pupil/CR), C = calibrate,\n' ...
              '   V = validate, Enter = accept, Esc = exit setup and continue\n\n'], mfilename);
     EyelinkDoTrackerSetup(el);
-else
-    % no new calibration: drift check at the fixation point
-    fprintf('[%s]: DRIFT CHECK, ask the subject to look at the dot, then press Space.\n', mfilename);
-    EyelinkDoDriftCorrection(el, round(width/2), round(height/2));
 end
 
 % back to the experiment background
