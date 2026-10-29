@@ -51,7 +51,7 @@ comTrigScan = true;
 saveStim = 0;
 
 %eyelink
-params.eyelink = 1;        % [] = ask at start, 0 = off, 1 = on
+params.eyelink = 0;        % [] = ask at start, 0 = off, 1 = on
 params.et.calibrate = 1;   % [] = ask, 1 = calibration + validation, 0 = no calibration (use the last one)
 params.et.dummy = 0;        % 1 = EyeLink dummy mode, test without tracker
 params.et.calibType = 'HV13';
@@ -383,6 +383,7 @@ stimulus = createTextures(params.display,stimulus,0);
 % retScreenReverse(params, stimulus);
 
 display = params.display;
+display.fixSizePixels = 6; % fixation dot size
 display.fixColorRgb = [255 0 0; 0 0 255];
 
 nFrames = length(stimulus.seq);
@@ -493,7 +494,7 @@ end
 
 %%
 
-waitDur =1;
+waitDur = 1.5; % response window (s) after a colour change; changes are >= 6 s apart
 
 data.resp = [];
 data.fixSeq = [];
@@ -511,41 +512,32 @@ for t = 1:length(data.keys)
     end
 end
 
-% specify time windows for hits
-correctResp = zeros(length(data.keys),1);
-repIndex = find(diff(fixSeq)~=0);
-data.fixSeq = fixSeq;
-nreps = length(repIndex);
-for t = 1:nreps
-    for i = 1:waitDur/viewTime
-        correctResp(repIndex(t)+i-1) = 1;
-    end
-end
-data.nreps = nreps;
+% recordKeys reports a held button in every frame it is down, so a press
+% fills ~10 frames of data.resp; score presses by their first frame only
+pressOn = find(diff([0 data.resp]) == 1);
 
-% calculate proportion of hits
+% first frame showing the new fixation colour
+changeOn = find(diff(fixSeq)~=0) + 1;
+data.fixSeq = fixSeq;
+nreps = length(changeOn);
+data.nreps = nreps;
+winFrames = round(waitDur/viewTime);
+
+% a change is a hit if a press starts within waitDur after it;
+% a press that starts outside every response window is a false alarm
+isHitPress = false(size(pressOn));
 hitCnt = 0;
-cnt = 0;
 for i = 1:nreps
-    cnt = cnt+1;
-    if sum(data.resp(repIndex(i):repIndex(i)+waitDur/viewTime-1)) >= 1
+    inWin = pressOn >= changeOn(i) & pressOn < changeOn(i) + winFrames;
+    if any(inWin)
         hitCnt = hitCnt+1;
-    else
     end
+    isHitPress = isHitPress | inWin;
 end
 data.hits = hitCnt;
 data.propHit = hitCnt/nreps;
-
-
-% count number of false alarms
-faCnt = 0;
-for t = 1:length(data.keys)
-    if correctResp(t) == 0 && data.resp(t) == 1
-        faCnt = faCnt+1;
-    else
-    end
-end
-data.falseAlarms = faCnt;
+data.pressOn = pressOn;
+data.falseAlarms = sum(~isHitPress);
 
 %%
 % %% ANANLYZE DATA AND CLEAR WINDOWS
