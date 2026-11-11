@@ -25,13 +25,16 @@ addpath(genpath(    './'))
 % HHSC 1X5 D HID KEY BYGRT
 
 %subject
+% read button presses from every keyboard device: the response box
+% (Current Designs 904) and the trigger box (KeyWarrior) are separate
+% devices, and max(a) picked the trigger box, so no presses were recorded
 [a, b]=GetKeyboardIndices;
-deviceNumber= max(a);
+deviceNumber= a;
 
-subject.name = 'pilot01_2710'; % put subject ID
+subject.name = 'test_1011'; % put subject ID
 subject.scanner = 0; % if you want to trigger scanner do 1
 
-% stimulus
+% stimulus1
 params.radius = 9;
 params.barWidth = 3;        % bar width (deg); 9 bars span the diameter, overlap = (9*3-18)/8 = 1.125 deg
 params.stimSizePix = 1024;  % stimulus diameter on screen (px), same as BCBLViennaSoft (2*radius = 1024 px)
@@ -51,7 +54,7 @@ comTrigScan = true;
 saveStim = 0;
 
 %eyelink
-params.eyelink = 0;        % [] = ask at start, 0 = off, 1 = on
+params.eyelink = 1;        % [] = ask at start, 0 = off, 1 = on
 params.et.calibrate = 1;   % [] = ask, 1 = calibration + validation, 0 = no calibration (use the last one)
 params.et.dummy = 0;        % 1 = EyeLink dummy mode, test without tracker
 params.et.calibType = 'HV13';
@@ -428,6 +431,19 @@ else
 end
 
 t0 = time0; % "time 0" to keep timing going
+
+% record button presses with keyboard queues from here on (see recordKeys)
+queueDevices = [];
+for d = deviceNumber
+    try
+        KbQueueCreate(d);
+        KbQueueStart(d);
+        queueDevices(end+1) = d;
+    catch
+        % device in use by another queue or not readable, skip it
+    end
+end
+deviceNumber = queueDevices;
 % SYNCTIME marks t0 in the EDF; frame onsets are t0+(frame-1)*viewTime
 if params.eyelink
     % same start marker as BCBLViennaSoft doRetinotopyScan.m
@@ -479,6 +495,11 @@ for frame = 1:nFrames
 end
 
 tTime = GetSecs-t0;
+
+for d = deviceNumber
+    KbQueueStop(d);
+    KbQueueRelease(d);
+end
 tTime
 
 %%
