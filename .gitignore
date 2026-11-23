@@ -2,3 +2,5 @@ code/toolbox/*
 code/Constants.m
 results/*
 *asv
+# Participant and test data: kept on the BCBL storage, never in git
+experiment/data/
