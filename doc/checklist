@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEMPREAD scan checklist</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7280;--line:#c9ced6;--ok:#1a7f4b;--okbg:#e6f4ec;--warn:#b45309;--bad:#b91c1c;--badbg:#fdecec;--acc:#2558c9}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{position:sticky;top:0;z-index:5;background:#1d2330;color:#fff;padding:8px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  header h1{font-size:16px;margin:0 6px 0 0}
+  header .sid{font-weight:700;background:#334;padding:2px 8px;border-radius:4px}
+  header .bar{flex:1;min-width:120px;height:8px;background:#445;border-radius:4px;overflow:hidden}
+  header .bar i{display:block;height:100%;background:#4ade80;width:0}
+  header button,header select{font:inherit;font-size:13px}
+  main{max-width:1100px;margin:0 auto;padding:12px 12px 70px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:12px 0;overflow:hidden}
+  section>h2{margin:0;padding:9px 12px;font-size:15px;background:#eef1f5;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+  section>h2 .cnt{font-weight:600;font-size:13px;color:var(--mute)}
+  section.done>h2{background:var(--okbg)} section.done>h2 .cnt{color:var(--ok)}
+  section.collapsed .body{display:none}
+  .body{padding:4px 12px 10px}
+  .must>h2{background:var(--badbg);color:var(--bad)}
+  .must.done>h2{background:var(--okbg);color:var(--ok)}
+  .xl>h2{background:#e8f0fe;color:#1e3a8a}
+  .item{display:flex;align-items:flex-start;gap:10px;padding:7px 2px;border-bottom:1px solid #eef0f3}
+  .item:last-child{border-bottom:0}
+  .item input[type=checkbox]{width:22px;height:22px;margin:0;flex:none;accent-color:var(--ok);cursor:pointer}
+  .item label{flex:1;cursor:pointer}
+  .item.checked label{color:var(--mute);text-decoration:line-through}
+  .item .ts{font-size:12px;color:var(--ok);white-space:nowrap;min-width:38px;text-align:right}
+  .crit label::before{content:"!";display:inline-block;background:var(--bad);color:#fff;font-weight:700;border-radius:3px;padding:0 5px;margin-right:6px;font-size:12px}
+  .info{border:0;background:none;color:var(--acc);cursor:pointer;font-size:13px;padding:0 4px}
+  .det{display:none;margin:2px 0 4px 32px;padding:6px 10px;background:#f4f6fb;border-left:3px solid var(--acc);font-size:13.5px;color:#374151;white-space:pre-line}
+  .det.open{display:block}
+  .sub{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--mute);margin:10px 0 2px;letter-spacing:.03em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 14px;padding:8px 0}
+  .grid label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:2px}
+  .grid input,textarea{font:inherit;font-size:14px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;color:var(--ink);background:#fff}
+  .hint{font-size:12.5px;color:var(--warn);margin:4px 0}
+  textarea{width:100%;min-height:60px}
+  .tblwrap{overflow-x:auto;margin:6px 0}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #9aa3af;padding:4px 5px;text-align:center;vertical-align:middle}
+  th{background:#eef1f5;font-weight:600;white-space:nowrap}
+  td.runname{text-align:left;font-weight:600;white-space:nowrap;width:86px}
+  td input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok);cursor:pointer;margin:0}
+  td input.tedit{display:block;margin:2px auto 0;font:inherit;font-size:11px;color:var(--ok);border:1px dashed #b8c2cc;border-radius:3px;padding:0 2px;width:68px;background:transparent}
+  td .tt{display:block;font-size:10.5px;color:var(--ok);line-height:1.1;min-height:11px}
+  td select{font:inherit;font-size:13px}
+  td input[type=text]{font:inherit;font-size:13px;width:100%;border:1px solid var(--line);border-radius:4px;padding:3px 5px}
+  td input.id{min-width:64px;width:72px}
+  td input.note{min-width:130px}
+  tr.rdone td{background:var(--okbg)}
+  tr.rbad td{background:#fff5e6}
+  tr.rerun td.runname{color:var(--warn)}
+  .smallbtn{font-size:12px;padding:1px 6px;cursor:pointer}
+  .legend{font-size:12px;color:var(--mute);margin:4px 0}
+  .btn{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .btn.finish{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:700;font-size:16px;padding:12px 18px}
+  .btn:disabled{background:#d1d5db;border-color:#d1d5db;color:#6b7280;cursor:not-allowed}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+  .where{font-family:ui-monospace,Consolas,monospace;background:#fff7d6;border:1px solid #e9d27a;padding:1px 6px;border-radius:4px}
+  .copied{color:var(--ok);font-weight:600;font-size:13px}
+  #blocker{position:sticky;bottom:0;z-index:5;background:var(--bad);color:#fff;padding:9px 14px;font-weight:600;display:none;text-align:center;cursor:pointer}
+  #blocker.show{display:block}
+  .finishedbanner{background:var(--okbg);color:var(--ok);border:1px solid var(--ok);padding:10px;border-radius:6px;font-weight:600}
+  .missing{color:var(--bad);font-size:13px;margin:6px 0}
+  table.preview td{font-size:12px;padding:2px 5px}
+  table.preview td.l{text-align:left}
+  @media print{header,#blocker,.info,.smallbtn,.btn{display:none}section.collapsed .body{display:block}}
+</style>
+</head>
+<body>
+<header>
+  <h1>TEMPREAD scan</h1>
+  <span class="sid" id="hdrId">sub-?? ses-??</span>
+  <div class="bar" title="overall progress"><i id="hdrBar"></i></div>
+  <span id="hdrPct">0%</span>
+  <select id="sessPick" title="switch session"></select>
+  <button id="newBtn">New session</button>
+</header>
+
+<main id="app"></main>
+<div id="blocker">⚠ Teardown not finished: <span id="blockerTxt"></span> (tap to jump)</div>
+
+<script>
+/* ===================== CONTENT (edit here) =====================
+   t = short text shown; d = optional longer note ("info"); crit = red "!" marker; opt = optional
+   scans = rows of the scan log; they map 1:1 to the rows of the 'mri' sheet in tempread_subseslist */
+const SECTIONS = [
+ {id:'prep', title:'1. Before participant arrives', groups:[
+  {sub:'Paperwork', items:[
+   {id:'forms_signed', t:'Safety form signed (nothing else before this)', crit:1},
+  ]},
+  {sub:'Room', items:[
+   {id:'light_front', t:'Front room light ON, back light OFF'},
+   {id:'light_bore', t:'Bore light: same on/off + level as always', d:'The bore light on/off and level must be identical in every run and every session.'},
+   {id:'sound_monitor', t:'Sound + monitor ON'},
+  ]},
+  {sub:'Computers & cables', items:[
+   {id:'pc_linux', t:'Linux box (MATLAB) ON'},
+   {id:'pc_et', t:'Eye-tracker PC ON'},
+   {id:'pc_physio', t:'Physiology PC ON'},
+   {id:'cable_button', t:'Button box cable → Linux', crit:1, d:'Must go back to the Windows machine at the end (teardown).'},
+   {id:'cable_skey', t:'S-key / sync box cable → Linux', crit:1, d:'Must go back to the Windows machine at the end (teardown).'},
+   {id:'sync_mode', t:'Sync box: mode = synchronizing, click Start session'},
+  ]},
+  {sub:'Data entry (same IDs everywhere)', items:[
+   {id:'id_scanner', t:'Scanner: Last name = sub-XX_ses-XX, Patient ID = TEMPREAD_ticket', d:'The DICOM folder under /lab/TEMPREAD_xxx/ will take the last name.'},
+   {id:'id_matlab', t:'MATLAB test: participant, language, session'},
+   {id:'id_physio', t:'Physiology window ready (same ID)'},
+   {id:'id_form', t:'Session info filled in experiment form'},
+  ]},
+ ]},
+ {id:'et', title:'2. Eye tracker', groups:[{items:[
+   {id:'et_plug', t:'Plug ET computer + back wire (near projector)', crit:1, d:'Unplug again at the end (teardown).'},
+   {id:'et_camera', t:'Correct camera detected'},
+   {id:'et_righteye', t:'Close one eye: make sure you know which eye is which on screen'},
+ ]}]},
+ {id:'proj', title:'3. Projector setup', groups:[{items:[
+   {id:'pj_photo', t:'PHOTO of projector position + menu first', crit:1, d:'Before touching anything. You need it to put everything back exactly (incl. the iris state when you arrived).'},
+   {id:'pj_aspect', t:'Aspect 16:9'},
+   {id:'pj_zoom', t:'Zoom in until edge touches the notes'},
+   {id:'pj_board', t:'Board centre aligned with note (rotate a bit left)'},
+   {id:'pj_bright', t:'Brightness 44'},
+   {id:'pj_contrast', t:'Contrast 50'},
+   {id:'pj_iris', t:'Iris to minimum'},
+ ]}]},
+ {id:'part', title:'4. Participant', groups:[
+  {sub:'Outside', items:[
+   {id:'p_forms', t:'Forms given / checked'},
+   {id:'p_metal', t:'Clothes changed, no magnetic items'},
+   {id:'p_vision', t:'Vision checked (contacts / MRI glasses)'},
+   {id:'p_seq', t:'Meanwhile: info in scanner, sequence ready'},
+   {id:'p_pee', t:'Toilet first'},
+  ]},
+  {sub:'In the scanner', items:[
+   {id:'p_ear', t:'Ear plugs'},
+   {id:'p_physio', t:'Physiology sensors'},
+   {id:'p_leg', t:'Leg pad, blanket / towel if cold'},
+   {id:'p_foam', t:'Head foam: as tight as possible'},
+   {id:'p_pad', t:'Pad under head: same as last session', d:'Light-eyed / some participants are hard for the ET. A small pad under the head brings the eyes closer to the mirror. Use the SAME pad setting for this participant in every session so the head position matches.'},
+   {id:'p_jaw', t:'Jaw up, head tilted up (for ET)'},
+   {id:'p_lights', t:'Leave lights on'},
+   {id:'p_talk', t:'From outside: can they hear you, can you hear them, OK?'},
+  ]},
+ ]},
+ {id:'start', title:'5. Start scans', groups:[{items:[
+   {id:'s_scout', t:'Head scout (tell them ~20 s)', d:'Say: "Now we are starting a 20-second short scan, please remain still. Once it is finished you can relax."\n\nThe time you tick this is used as the session start_time.'},
+   {id:'s_t1say', t:'Tell them: T1w ~8.5 min, keep still. Movie on', d:'Say: "How are you feeling? Is everything good? Now we start the T1w structural scan, it lasts about 8 and a half minutes. When the scan is running, please move your head as little as you can, it is very important for image quality."'},
+  ]}], scans:['T1w'], after:[
+   {id:'s_ok', t:'Ask if OK, tell them the task starts'},
+   {id:'s_explain', t:'Explain: ET calibration + 9 runs (3–4 min), field maps before each', d:'Say: "Now we do the eye-tracker calibration and validation. Meanwhile we run the field map, a 30-second sequence. Please stay still and look at the centre of the dot. When your eye position is correct for each dot, I accept and move to the next dot."\n\nEvery 2–3 runs do a validation to decide whether you need to recalibrate.'},
+ ]},
+ {id:'stprf', title:'6. stPRF runs', scans:['stprf_01','stprf_02','stprf_03','stprf_04','stprf_05','stprf_06','stprf_07','stprf_08','stprf_09'], after:[
+   {id:'m_done', t:'Tell them stPRF finished, break?'},
+   {id:'m_scout', t:'If break: add a head scout', opt:1},
+ ]},
+ {id:'floc', title:'7. fLoc runs', pre:[
+   {id:'f_instr', t:'Tell them: next task fLoc + instruction (same routine)'},
+ ], scans:['fLoc_01','fLoc_02','fLoc_03'], after:[
+   {id:'f_scout', t:'If break: add a head scout', opt:1},
+ ]},
+ {id:'struct', title:'8. Structural', pre:[
+   {id:'st_movie', t:'Tell them: structural scans, movie on'},
+ ], scans:['T2w','qMRI','dwi','dwi_b0_revPE','SWI']},
+ {id:'tear', title:'9. TEARDOWN: mandatory before leaving', must:1, groups:[
+  {sub:'Participant', items:[
+   {id:'x_tell', t:'Tell them it is finished, ask if OK'},
+  ]},
+  {sub:'Projector RESTORE (compare with your photo)', items:[
+   {id:'x_aspect', t:'Aspect → FULL'},
+   {id:'x_zoom', t:'Zoom OUT to minimum'},
+   {id:'x_board', t:'Board back (rotate a bit right)'},
+   {id:'x_bright', t:'Brightness 44'},
+   {id:'x_contrast', t:'Contrast 50'},
+   {id:'x_iris', t:'Iris back as on arrival (check photo)', d:'Up if it was bright when you arrived.'},
+  ]},
+  {sub:'Equipment', items:[
+   {id:'x_et', t:'Eye tracker: wires unplugged'},
+   {id:'x_physio', t:'Physiology: stopped, saved, set back'},
+   {id:'x_button', t:'Button box cable → back to WINDOWS machine'},
+   {id:'x_skey', t:'S-key / sync box cable → back to WINDOWS machine'},
+  ]},
+  {sub:'Data', items:[
+   {id:'x_mri', t:'MRI data archived'},
+   {id:'x_upload', t:'Uploaded: physiology, EDF, .mat'},
+   {id:'x_excel', t:'Scan log pasted into subseslist (section 10)', d:'Section 10 below: one Copy, one Paste into the mri sheet. Do it now or later the same day; it stays saved here.'},
+  ]},
+ ]},
+];
+/* type per scan name, as in the 'mri' sheet. Order = row order of one session in the sheet */
+const MRI_ORDER = [['T1w','anat'],['stprf_01','func'],['stprf_02','func'],['stprf_03','func'],['stprf_04','func'],['stprf_05','func'],['stprf_06','func'],['stprf_07','func'],['stprf_08','func'],['stprf_09','func'],['T2w','anat'],['qMRI','anat'],['dwi','dwi'],['dwi_b0_revPE','dwi'],['SWI','anat'],['fLoc_01','func'],['fLoc_02','func'],['fLoc_03','func']];
+const TYPE = Object.fromEntries(MRI_ORDER);
+/* tick columns for functional runs (in the order you do them) */
+const FUNC_COLS = [
+ {k:'mat', h:'MATLAB', tip:'Start the MATLAB run'},
+ {k:'ap', h:'Fmap AP', tip:'Field map AP (15 s). Time is saved → fmap_AP_time', time:1},
+ {k:'pa', h:'Fmap PA', tip:'Field map PA (15 s). Time is saved → fmap_PA_time', time:1},
+ {k:'cal', h:'C', tip:'Calibration (during the field maps): fixate the dot'},
+ {k:'val', h:'V', tip:'Validation. Bad → redo C + V'},
+ {k:'esc', h:'Esc', tip:'Esc: ET recording starts'},
+ {k:'phy', h:'Physio', tip:'Start physiology recording'},
+ {k:'ins', h:'Instr', tip:'Tell them it starts + task instruction'},
+ {k:'scan', h:'Scan', tip:'Start scan. Time is saved → time; scanned = 1', time:1},
+];
+const STATUS = ['', 'ok', 'interrupted', 'bad', 'skipped'];
+const ET_OPTS = ['', 'left', 'right', 'both', 'none'];
+/* =============================================================== */
+
+const KEY='tempread_checklist_v2';
+let DB = load();
+let S = DB.sessions[DB.current] || null;
+
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&x.sessions)return x}catch(e){}return {current:null,sessions:{}}}
+function save(){if(S){S.updated=new Date().toISOString();DB.sessions[S.key]=S;DB.current=S.key}localStorage.setItem(KEY,JSON.stringify(DB))}
+const pad2=n=>String(n).padStart(2,'0');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hm=iso=>{if(!iso)return'';const d=new Date(iso);return pad2(d.getHours())+':'+pad2(d.getMinutes())};
+const normId=(v,p)=>{v=String(v||'').trim();const m=v.match(/(\d+)/);return m?p+'-'+pad2(+m[1]):''};
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())};
+const isFunc=s=>TYPE[s]==='func';
+
+function newSession(){
+  const s={key:'draft-'+Date.now(),created:new Date().toISOString(),meta:{sub:'',ses:'',date:today()},checks:{},runs:[],notes:'',finished:null};
+  SECTIONS.forEach(sec=>(sec.scans||[]).forEach(n=>s.runs.push(mkRun(n,1))));
+  return s;
+}
+function mkRun(scan,att){return {id:scan+'_'+att+'_'+Math.random().toString(36).slice(2,6),scan,attempt:att,checks:{},status:'',note:'',et:'',matlab:'',physio:''}}
+function rekey(){
+  const sub=S.meta.sub,ses=S.meta.ses;
+  if(sub&&ses){const nk=sub+'_'+ses;if(nk!==S.key){
+    if(DB.sessions[nk]&&!confirm(nk+' already exists in this browser. Overwrite it?'))return false;
+    delete DB.sessions[S.key];S.key=nk}}
+  return true;
+}
+function listItems(sec){return [...(sec.groups||[]).flatMap(g=>g.items),...(sec.pre||[]),...(sec.after||[])]}
+function rowDone(r){const cols=isFunc(r.scan)?FUNC_COLS:[{k:'scan'}];return r.status==='ok'&&cols.every(c=>r.checks[c.k])}
+function secProgress(sec){
+  let tot=0,done=0;
+  listItems(sec).forEach(it=>{if(it.opt)return;tot++;if(S.checks[it.id])done++});
+  (sec.scans||[]).forEach(n=>{const rs=S.runs.filter(r=>r.scan===n);
+    if(rs.some(r=>r.status==='skipped')&&!rs.some(rowDone)){return}
+    tot++;if(rs.some(rowDone))done++});
+  return {tot,done};
+}
+function teardownLeft(){return listItems(SECTIONS.find(s=>s.must)).filter(it=>!S.checks[it.id])}
+function started(){return Object.keys(S.checks).some(k=>!k.startsWith('x_'))||S.runs.some(r=>Object.keys(r.checks).length)}
+
+/* row numbers in tempread_subseslist (no inserted rows) */
+function subN(){return +(S.meta.sub||'').slice(4)||0}
+function sesN(){return +(S.meta.ses||'').slice(4)||0}
+function mriRow(){const a=subN(),b=sesN();if(!a||b<2)return null;return 2+((a-1)*4+(b-2))*18}
+function sesRow(){const a=subN(),b=sesN();if(!a||!b)return null;return 2+(a-1)*5+(b-1)}
+
+/* ---------- render ---------- */
+const app=document.getElementById('app');
+function render(){
+  if(!S){S=newSession();}
+  const m=S.meta;
+  let h=`<section id="sec-info"><h2>Session info <span class="cnt">${S.finished?'FINISHED '+hm(S.finished):''}</span></h2><div class="body">
+  <div class="grid">
+   <label>Subject<input data-meta="sub" value="${esc(m.sub)}" placeholder="sub-01"></label>
+   <label>Session<input data-meta="ses" value="${esc(m.ses)}" placeholder="ses-02"></label>
+   <label>Date<input type="date" data-meta="date" value="${esc(m.date)}"></label>
+  </div>${m.ses==='ses-01'?'<div class="hint">ses-01 is reading battery only (no MRI).</div>':''}</div></section>`;
+
+  SECTIONS.forEach(sec=>{
+    const p=secProgress(sec);
+    const cls=[sec.must?'must':'',p.tot&&p.done===p.tot?'done':''].join(' ');
+    h+=`<section id="sec-${sec.id}" class="${cls}"><h2 data-tog>${sec.title}<span class="cnt">${p.done}/${p.tot}</span></h2><div class="body">`;
+    (sec.groups||[]).forEach(g=>{if(g.sub)h+=`<div class="sub">${g.sub}</div>`;g.items.forEach(it=>h+=itemHtml(it))});
+    (sec.pre||[]).forEach(it=>h+=itemHtml(it));
+    if(sec.scans)h+=sec.scans.some(isFunc)?funcTable(sec.scans):anatTable(sec.scans);
+    (sec.after||[]).forEach(it=>h+=itemHtml(it));
+    if(sec.must){
+      const left=teardownLeft();
+      if(S.finished)h+=`<div class="finishedbanner">✔ Session finished at ${hm(S.finished)}. Everything restored.</div>`;
+      else{
+        h+=`<div class="row"><button class="btn finish" id="finishBtn" ${left.length?'disabled':''}>Finish session</button></div>`;
+        if(left.length)h+=`<div class="missing">Still to do (${left.length}): ${left.map(i=>esc(i.t)).join(' · ')}</div>`;
+      }
+    }
+    h+=`</div></section>`;
+  });
+
+  h+=`<section id="sec-notes"><h2>Session notes</h2><div class="body"><textarea id="notes" placeholder="Anything unusual for the whole session…">${esc(S.notes)}</textarea></div></section>`;
+  h+=excelSection();
+  h+=`<section id="sec-export"><h2 data-tog>Backup / files</h2><div class="body"><div class="row">
+    <button class="btn" data-x="csv">Scan log CSV</button>
+    <button class="btn" data-x="json">Full checklist JSON</button>
+    <button class="btn" data-x="all">All sessions JSON</button>
+    <label class="btn">Import JSON<input type="file" id="imp" accept=".json" hidden></label>
+    <button class="btn" data-x="print">Print</button>
+    <button class="btn" data-x="del" style="color:var(--bad)">Delete this session</button>
+  </div><div class="legend">Everything is saved automatically in this browser on this computer. The CSV has the same columns as the mri sheet. The JSON also keeps every ticked step with its time.</div></div></section>`;
+  app.innerHTML=h;
+  header();
+}
+function itemHtml(it){
+  const c=S.checks[it.id];
+  return `<div class="item${c?' checked':''}${it.crit?' crit':''}"><input type="checkbox" id="c_${it.id}" data-chk="${it.id}"${c?' checked':''}>
+   <label for="c_${it.id}">${esc(it.t)}${it.opt?' <i style="color:#999">(optional)</i>':''}</label>
+   ${it.d?`<button class="info" data-info="${it.id}">info</button>`:''}<span class="ts">${hm(c)}</span></div>
+   ${it.d?`<div class="det" id="d_${it.id}">${esc(it.d)}</div>`:''}`;
+}
+function rowCls(r){return [rowDone(r)?'rdone':'',(r.status==='interrupted'||r.status==='bad')?'rbad':'',r.attempt>1?'rerun':''].join(' ')}
+function nameCell(r){return `<td class="runname">${esc(r.scan)}${r.attempt>1?' <small>(re '+(r.attempt-1)+')</small>':''}</td>`}
+function tailCells(r){return `<td><select data-rf="status" data-r="${r.id}">${STATUS.map(s=>`<option${s===r.status?' selected':''}>${s}</option>`).join('')}</select></td>
+  <td><input type="text" class="note" data-rf="note" data-r="${r.id}" value="${esc(r.note)}" placeholder="note"></td>
+  <td><button class="smallbtn" data-rerun="${r.id}" title="add a row to repeat this scan">+rerun</button></td>`}
+function funcTable(scans){
+  const rows=S.runs.filter(r=>scans.includes(r.scan));
+  let h=`<div class="legend">Tick left → right. Ticking <b>Scan</b> sets status to ok. Interrupted/bad → <b>+rerun</b> adds a row. Hover a column for details.</div><div class="tblwrap"><table><thead><tr><th>Run</th>`;
+  FUNC_COLS.forEach(c=>h+=`<th title="${esc(c.tip)}">${c.h}</th>`);
+  h+=`<th title="Eye tracked">ET eye</th><th>matlab_id</th><th>physio_id</th><th>Status</th><th>Note</th><th></th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    h+=`<tr class="${rowCls(r)}">${nameCell(r)}`;
+    FUNC_COLS.forEach(c=>h+=`<td title="${esc(c.tip)}"><input type="checkbox" data-run="${r.id}" data-k="${c.k}"${r.checks[c.k]?' checked':''}>${c.time?tEdit(r,c.k):''}</td>`);
+    h+=`<td><select data-rf="et" data-r="${r.id}">${ET_OPTS.map(s=>`<option${s===r.et?' selected':''}>${s}</option>`).join('')}</select></td>
+      <td><input type="text" class="id" data-rf="matlab" data-r="${r.id}" value="${esc(r.matlab)}"></td>
+      <td><input type="text" class="id" data-rf="physio" data-r="${r.id}" value="${esc(r.physio)}"></td>${tailCells(r)}</tr>`;
+  });
+  return h+`</tbody></table></div>`;
+}
+function tEdit(r,k){return r.checks[k]?`<input type="time" class="tedit" data-tedit="${r.id}" data-k="${k}" value="${hm(r.checks[k])}" title="click to correct the time">`:'<span class="tt"></span>'}
+function anatTable(scans){
+  const rows=S.runs.filter(r=>scans.includes(r.scan));
+  let h=`<div class="tblwrap"><table><thead><tr><th>Scan</th><th title="Start scan. Time is saved">Scan</th><th>Status</th><th>Note</th><th></th></tr></thead><tbody>`;
+  rows.forEach(r=>{h+=`<tr class="${rowCls(r)}">${nameCell(r)}<td style="width:60px"><input type="checkbox" data-run="${r.id}" data-k="scan"${r.checks.scan?' checked':''}>${tEdit(r,'scan')}</td>${tailCells(r)}</tr>`});
+  return h+`</tbody></table></div>`;
+}
+
+/* ---------- Excel link ---------- */
+function mriRows(){ /* one row per scan, merged across reruns, in sheet order */
+  return MRI_ORDER.map(([name,type])=>{
+    const rs=S.runs.filter(r=>r.scan===name);
+    const good=[...rs].reverse().find(r=>r.status==='ok'||(r.checks.scan&&!['bad','interrupted','skipped'].includes(r.status)));
+    const ch=good||rs[rs.length-1]||mkRun(name,1);
+    let scanned='';
+    if(good)scanned=1; else if(rs.some(r=>r.status||r.checks.scan))scanned=0;
+    const notes=[];
+    rs.forEach(r=>{
+      if(rs.length===1){if(r.note)notes.push(r.note);return}
+      const tag=`try ${r.attempt}${r.status?' '+r.status:''}${r.checks.scan?' '+hm(r.checks.scan):''}`;
+      notes.push(tag+(r.note?': '+r.note:''));
+    });
+    const f=type==='func';
+    return {sub:S.meta.sub,ses:S.meta.ses,date:S.meta.date,type,scan_name:name,scanned,time:hm(ch.checks.scan),
+      et:f&&scanned!==''?ch.et:'',matlab:f?ch.matlab:'',physio:f?ch.physio:'',ap:f?hm(ch.checks.ap):'',pa:f?hm(ch.checks.pa):'',notes:notes.join(' | ')};
+  });
+}
+const XL_COLS=['scanned','time','et','matlab','physio','ap','pa','notes'];
+function excelSection(){
+  const r=mriRow(),sr=sesRow(),rows=mriRows();
+  const filled=rows.filter(x=>x.scanned!=='').length;
+  let h=`<section id="sec-xl" class="xl"><h2 data-tog>10. Send to subseslist (Excel)<span class="cnt">${filled}/18 scans</span></h2><div class="body">`;
+  if(!r){h+=`<div class="hint">Fill in Subject and Session (ses-02 to ses-05) first.</div></div></section>`;return h}
+  h+=`<div class="sub">A. mri sheet (all 18 scans at once)</div>
+  <div class="row"><button class="btn primary" data-x="copymri">Copy scan log</button><span class="copied" id="cp_mri"></span></div>
+  <div class="legend">Open <b>tempread_subseslist</b> → sheet <b>mri</b> → click cell <span class="where">F${r}</span> (row of ${esc(S.meta.sub)} ${esc(S.meta.ses)} <b>T1w</b>, column <i>scanned</i>) → <b>Ctrl+V</b>. It fills F to M for the 18 rows. Check that the row really says ${esc(S.meta.sub)} / ${esc(S.meta.ses)} / T1w (it moves if you inserted rows before).
+  Reruns are merged into one row: the good attempt fills the row, every attempt is listed in notes.</div>
+  <div class="tblwrap"><table class="preview"><thead><tr><th>row</th><th>scan_name</th><th>F scanned</th><th>G time</th><th>H ET</th><th>I matlab_id</th><th>J physio_id</th><th>K fmap_AP</th><th>L fmap_PA</th><th>M notes</th></tr></thead><tbody>`;
+  rows.forEach((x,i)=>h+=`<tr><td>${r+i}</td><td class="l">${esc(x.scan_name)}</td>${XL_COLS.map(k=>`<td${k==='notes'?' class="l"':''}>${esc(x[k])}</td>`).join('')}</tr>`);
+  h+=`</tbody></table></div>
+  <div class="sub">B. sessions sheet</div>
+  <div class="row"><button class="btn" data-x="copyses">Copy date + start time</button><span class="copied" id="cp_ses"></span>
+   <button class="btn" data-x="copynotes">Copy session notes</button><span class="copied" id="cp_notes"></span></div>
+  <div class="legend">Sheet <b>sessions</b>: date + start time → click <span class="where">C${sr}</span> → Ctrl+V. Session notes → <span class="where">G${sr}</span>. Start time = when you ticked the head scout (${hm(S.checks.s_scout)||'not yet'}).</div>
+  </div></section>`;
+  return h;
+}
+async function copyText(txt,flagId){
+  try{await navigator.clipboard.writeText(txt)}catch(e){const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}
+  const el=document.getElementById(flagId);if(el){el.textContent='✔ copied, now paste in Excel';setTimeout(()=>{el.textContent=''},4000)}
+}
+const tsvCell=v=>String(v??'').replace(/[\t\r\n]+/g,' ');
+
+/* ---------- header ---------- */
+function header(){
+  const m=S.meta;
+  document.getElementById('hdrId').textContent=(m.sub||'sub-??')+' '+(m.ses||'ses-??')+(S.finished?' ✔':'');
+  let tot=0,done=0;SECTIONS.forEach(s=>{const p=secProgress(s);tot+=p.tot;done+=p.done});
+  const pct=tot?Math.round(100*done/tot):0;
+  document.getElementById('hdrBar').style.width=pct+'%';document.getElementById('hdrPct').textContent=pct+'%';
+  const pick=document.getElementById('sessPick');
+  const keys=Object.keys(DB.sessions).sort();
+  if(!keys.includes(S.key))keys.push(S.key);
+  pick.innerHTML=keys.map(k=>`<option value="${esc(k)}"${k===S.key?' selected':''}>${esc(k.startsWith('draft')?'(new, unnamed)':k)}${DB.sessions[k]&&DB.sessions[k].finished?' ✔':''}</option>`).join('');
+  const left=teardownLeft();const b=document.getElementById('blocker');
+  b.classList.toggle('show',started()&&!S.finished&&left.length>0);
+  document.getElementById('blockerTxt').textContent=left.length+' item'+(left.length>1?'s':'')+' left';
+}
+function refreshSoft(){
+  const y=scrollY,open=[...document.querySelectorAll('.det.open')].map(e=>e.id),col=[...document.querySelectorAll('section.collapsed')].map(e=>e.id);
+  render();
+  open.forEach(id=>{const e=document.getElementById(id);e&&e.classList.add('open')});
+  col.forEach(id=>{const e=document.getElementById(id);e&&e.classList.add('collapsed')});
+  scrollTo(0,y);
+}
+
+/* ---------- events ---------- */
+const run=id=>S.runs.find(x=>x.id===id);
+app.addEventListener('change',e=>{
+  const t=e.target,d=t.dataset;const now=new Date().toISOString();
+  if(d.chk){if(t.checked)S.checks[d.chk]=now;else delete S.checks[d.chk];if(d.chk.startsWith('x_')&&!t.checked)S.finished=null}
+  else if(d.run){const r=run(d.run);if(t.checked)r.checks[d.k]=now;else delete r.checks[d.k];
+    if(d.k==='scan'&&t.checked&&!r.status)r.status='ok';}
+  else if(d.tedit){const r=run(d.tedit),m=t.value.match(/^(\d\d):(\d\d)/);if(!m)return;
+    const dt=new Date(r.checks[d.k]||now);dt.setHours(+m[1],+m[2],0,0);r.checks[d.k]=dt.toISOString();r.edited=r.edited||{};r.edited[d.k]=1;save();return} /* re-render on blur, keeps focus while typing */
+  else if(d.rf){const r=run(d.r);r[d.rf]=t.value;
+    if(t.tagName==='INPUT'){save();return} /* text fields: no re-render, keeps focus */
+    if(d.rf==='et'){ /* fill later functional rows that are still empty */
+      let after=false;S.runs.forEach(x=>{if(x===r){after=true;return}if(after&&isFunc(x.scan)&&!x.et)x.et=t.value})}}
+  else if(d.meta){let v=t.value;if(d.meta==='sub')v=normId(v,'sub');if(d.meta==='ses')v=normId(v,'ses');
+    const old=S.meta[d.meta];S.meta[d.meta]=v;if(!rekey()){S.meta[d.meta]=old}}
+  else if(t.id==='notes'){S.notes=t.value;save();return}
+  else if(t.id==='imp'){importFile(t.files[0]);return}
+  else return;
+  save();refreshSoft();
+});
+app.addEventListener('focusout',e=>{if(e.target.dataset&&e.target.dataset.tedit)setTimeout(refreshSoft,0)});
+app.addEventListener('input',e=>{const t=e.target,d=t.dataset;
+  if(t.id==='notes'){S.notes=t.value;save()}
+  else if(d.rf&&t.tagName==='INPUT'){run(d.r)[d.rf]=t.value;save()}});
+app.addEventListener('click',e=>{
+  const t=e.target,d=t.dataset;
+  if(d.info){document.getElementById('d_'+d.info).classList.toggle('open');return}
+  const h2=t.closest('h2[data-tog]');if(h2){h2.parentElement.classList.toggle('collapsed');return}
+  if(d.rerun){const i=S.runs.findIndex(x=>x.id===d.rerun);const r=S.runs[i];
+    const att=Math.max(...S.runs.filter(x=>x.scan===r.scan).map(x=>x.attempt))+1;
+    let j=i;while(j+1<S.runs.length&&S.runs[j+1].scan===r.scan)j++;
+    const nr=mkRun(r.scan,att);nr.et=r.et;S.runs.splice(j+1,0,nr);save();refreshSoft();return}
+  if(t.id==='finishBtn'){if(teardownLeft().length)return;S.finished=new Date().toISOString();save();refreshSoft();return}
+  if(d.x==='copymri')copyText(mriRows().map(x=>XL_COLS.map(k=>tsvCell(x[k])).join('\t')).join('\r\n'),'cp_mri');
+  if(d.x==='copyses')copyText(tsvCell(S.meta.date)+'\t'+tsvCell(hm(S.checks.s_scout)),'cp_ses');
+  if(d.x==='copynotes')copyText(tsvCell(S.notes),'cp_notes');
+  if(d.x==='json')exportJSON();if(d.x==='csv')exportCSV();if(d.x==='all')exportAll();
+  if(d.x==='print'){document.querySelectorAll('.det').forEach(x=>x.classList.add('open'));print()}
+  if(d.x==='del'){if(confirm('Delete '+S.key+' from this browser? (Export first if you need it)')){delete DB.sessions[S.key];DB.current=null;S=newSession();localStorage.setItem(KEY,JSON.stringify(DB));render()}}
+});
+document.getElementById('newBtn').onclick=()=>{S=newSession();render();scrollTo(0,0)};
+document.getElementById('sessPick').onchange=e=>{const k=e.target.value;if(DB.sessions[k]){S=DB.sessions[k];DB.current=k;save();render();scrollTo(0,0)}};
+document.getElementById('blocker').onclick=()=>document.getElementById('sec-tear').scrollIntoView({behavior:'smooth'});
+addEventListener('beforeunload',e=>{if(S&&started()&&!S.finished&&teardownLeft().length){e.preventDefault();e.returnValue=''}});
+
+/* ---------- files ---------- */
+function fname(ext,suffix){const m=S.meta;return `${m.sub||'sub-XX'}_${m.ses||'ses-XX'}_${(m.date||today()).replace(/-/g,'')}_${suffix}.${ext}`}
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function csvRow(a){return a.map(v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')}
+function exportCSV(){
+  const rows=[['sub','ses','date','type','scan_name','scanned','time','Eyetracking','matlab_id','physio_id','fmap_AP_time','fmap_PA_time','notes']];
+  mriRows().forEach(x=>rows.push([x.sub,x.ses,x.date,x.type,x.scan_name,x.scanned,x.time,x.et,x.matlab,x.physio,x.ap,x.pa,x.notes]));
+  dl(fname('csv','mri'),rows.map(csvRow).join('\r\n'),'text/csv');
+}
+function sessionExport(s){
+  const steps={};SECTIONS.forEach(sec=>listItems(sec).forEach(it=>steps[it.id]={section:sec.title,text:it.t,checked_at:s.checks[it.id]||null}));
+  return {tool:'tempread_scan_checklist',version:2,sub:s.meta.sub,ses:s.meta.ses,date:s.meta.date,created:s.created,finished:s.finished,notes:s.notes,steps,runs:s.runs};
+}
+function exportJSON(){dl(fname('json','checklist'),JSON.stringify(sessionExport(S),null,2),'application/json')}
+function exportAll(){dl('tempread_all_sessions_'+today().replace(/-/g,'')+'.json',JSON.stringify(Object.values(DB.sessions).map(sessionExport),null,2),'application/json')}
+function importFile(f){if(!f)return;f.text().then(txt=>{
+  let arr;try{arr=JSON.parse(txt)}catch(e){alert('Not a valid JSON file');return}
+  if(!Array.isArray(arr))arr=[arr];let n=0;
+  arr.forEach(x=>{if(!x||x.tool!=='tempread_scan_checklist'||x.version!==2)return;
+    const s={key:x.sub&&x.ses?x.sub+'_'+x.ses:'draft-'+Date.now()+n,created:x.created,meta:{sub:x.sub,ses:x.ses,date:x.date},checks:{},runs:x.runs||[],notes:x.notes||'',finished:x.finished};
+    Object.entries(x.steps||{}).forEach(([k,v])=>{if(v.checked_at)s.checks[k]=v.checked_at});
+    DB.sessions[s.key]=s;S=s;n++});
+  if(!n){alert('No TEMPREAD checklist sessions found in that file');return}
+  save();render();alert('Imported '+n+' session(s)');
+})}
+
+render();
+</script>
+</body>
+</html>
