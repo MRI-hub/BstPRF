@@ -48,7 +48,8 @@ params.tr = 1;
 
 % scanner
 triggerKey = 's'; % press g to start
-comTrigScan = true;
+comTrigScan = false; % BCBL: the scanner sends the trigger. true runs VPNL's scanner-start code (newStartScan, StartScan),
+                     % which only delays the stimulus here (8-296 ms after the trigger in pilot04, 2026-11-25)
 
 %save
 saveStim = 0;
