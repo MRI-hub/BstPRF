@@ -1,4 +1,4 @@
-function st_prfRun(sessionDir,roifile,stimfile,analysisoption,prfModel,temporalModel,prefix,wSearch,userData,useGPU)
+function st_prfRun(sessionDir,roifile,stimfile,analysisoption,prfModel,temporalModel,prefix,wSearch,userData,useGPU,stimradius)
 %
 % Step 4 of the workflow for analyzing stPRF
 % Runs the spatiotemporal prf model 
@@ -122,8 +122,10 @@ cd(sessionDir);
 % [~, sessioncode] = fileparts(sessionDir);
 
 %% key attribute settings  ----------------------
-% radius of circle retinotopy in visual angle degrees
-stimradius = 12;
+% radius of circle retinotopy in visual angle degrees.
+% BCBL (tempread): the experiment shows the stimulus at 9 deg (st_run, params.radius = 9), so the model
+% must use 9 too; 12 was VPNL's setup. A different radius can be given as the 11th argument.
+if notDefined('stimradius'), stimradius = 9; end
 
 % detrending frequeny maximum (cycles per scan):
 % 1 means 3 detrending terms, DC (0 cps), 0.5, and 1 cps

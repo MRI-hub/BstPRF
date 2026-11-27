@@ -24,7 +24,7 @@ resultsDir = fullfile('results',simName);
 sessionDir = fullfile(resultsDir,'data');
 
 % set noise level and stimulus size (radius, in visual angle, deg)
-nVoxels = 10; StimSize = 12;  temporalSampleRate = 100; 
+nVoxels = 10; StimSize = 9;  temporalSampleRate = 100;  % 9 deg: the BCBL setup (st_run), as st_prfRun 
 nRuns = 2; % using 1 run to reduce compute time otherwise
 % use 9 runs to include all the temporal conditions in the experiment 
 
